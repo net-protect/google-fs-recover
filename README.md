@@ -5,6 +5,5 @@ About: This tool is intended to scan the Google File Stream sqllitedb and match 
 
 This is a very raw tool. Use at your own risk! 
 
-Usage:
-Example
+Example Usage:
 python .\google-fs-recover.py -db <metadata_sqlite_db full path> -c <content_cache full path> -csv <outputfile full path> -b <filebackup full path>
