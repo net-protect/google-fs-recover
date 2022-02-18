@@ -90,7 +90,11 @@ def BackupFiles(_path, _cacheFileData):
 	for cacheFile in _cacheFileData:
 		if not os.path.exists(cacheFile['cacheFilePath']):
 			print(f"File Not Found: {cacheFile['cacheFilePath']}")
-		shutil.copyfile(cacheFile['cacheFilePath'], os.path.join(_path, cacheFile['origFilename']))
+		else:
+			detinationFile = f"{os.path.join(_path, cacheFile['origFilename'])}" 
+			if os.path.exists(detinationFile):
+				detinationFile = f"{detinationFile}_{cacheFile['cacheFilename']}" #Quick and dirty for proof of concept 
+			shutil.copyfile(cacheFile['cacheFilePath'], detinationFile)
 
 def GetMD5Hash(_file):
 	md5Hash = hashlib.md5()
