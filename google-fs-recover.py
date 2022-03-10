@@ -7,6 +7,7 @@ import shutil
 import hashlib
 import blackboxprotobuf
 from datetime import datetime
+import time
 
 def GetArgs(_args):#Get cmdline opts
 	allArgs = argparse.ArgumentParser()
@@ -42,9 +43,11 @@ def GetOrigFileNames(_path, _sqlFileData):
 	#Variables
 	files = []
 	for entry in _sqlFileData:
-		selectStr = f"SELECT stable_id, local_title from items where id = '{entry['itemsId']}'"
+		selectStr = f"SELECT stable_id, local_title, trashed, is_owner from items where id = '{entry['itemsId']}'"
 		for data in cur.execute(selectStr):
 			entry["origFileName"] = data[1]
+			entry["trashed"] = data[2]
+			entry["isOwner"] = data[3]
 			count += 1
 	print(f"{count} files found in SQLite DB")
 	return _sqlFileData
@@ -63,24 +66,32 @@ def GetCacheFiles(_path, _sqlFileData):
 					count += 1
 					cacheFilePath = os.path.join(root,realFile)
 					md5 = GetMD5Hash(cacheFilePath)
-					cacheFileData.append({"stableId": sqlEntry["stableId"],"cacheFilename": sqlEntry["cacheFilename"], "origFilename": sqlEntry["origFileName"], "cacheFilePath": cacheFilePath, "cacheDirectory": root, "md5Hash": md5})
+					cacheFileData.append({"stableId": sqlEntry["stableId"],"cacheFilename": sqlEntry["cacheFilename"], "origFilename": sqlEntry["origFileName"], "cacheFilePath": cacheFilePath, "cacheDirectory": root, "md5Hash": md5, "trashed": bool(sqlEntry['trashed']), "isOwner": bool(sqlEntry["isOwner"]) })
 	print(f"{len(cacheFileData)} files found in cache folder")					
 	return cacheFileData
 
-def WriteCSV(_path, _cacheFileData):
+def WriteCSV(_path, _cacheFileData, _googleIdentifier):
 	if not (os.path.exists(_path)): #Check if sqllite db exists
 		raise Exception(f"Output path does not exist {_path}")
 	count = 0
-	headers = ['stable_id','cache_filename','original_filename','cache_file_path', 'cache_directory', 'md5'] #write the headers for the csv
+	headers = ['stable_id','cache_filename','original_filename','creation_time','modification_time','cache_file_path', 'cache_directory', 'md5', 'trashed', 'is_owner'] #write the headers for the csv
 	timestamp = datetime.now()
+	unixtime = time.mktime(timestamp.timetuple())
+	unixtime = f"{unixtime}"
+	unixtime = unixtime.split(".")
+	unixtime = unixtime[0]
 	formatedTimeStamp = timestamp.strftime("%Y%m%d%H%M%S_%f")
-	exportFileName = f'google-fs-filelist-{formatedTimeStamp}.csv'
+	exportFileName = f'google-fs-filelist-{_googleIdentifier}-{unixtime}.csv'
 	with open(f"{os.path.join(_path,exportFileName)}", 'w', encoding='UTF8', newline='') as f:
 		allData = []
 		writer = csv.writer(f)
 		writer.writerow(headers)
 		for entry in _cacheFileData:
-			data = [entry['stableId'], entry['cacheFilename'], entry['origFilename'], entry['cacheFilePath'], entry['cacheDirectory'], entry['md5Hash']]
+			creationTime = os.path.getctime(entry['cacheFilePath'])
+			creationTime = time.ctime(creationTime)
+			modificationTime = os.path.getmtime(entry['cacheFilePath'])
+			modificationTime = time.ctime(modificationTime)
+			data = [entry['stableId'], entry['cacheFilename'], entry['origFilename'], creationTime, modificationTime, entry['cacheFilePath'], entry['cacheDirectory'], entry['md5Hash'], entry['trashed'], entry['isOwner']]
 			writer.writerow(data)
 			count += 1
 	print(f"{count} rows written to csv")
@@ -138,6 +149,8 @@ def main(_args):
 	#Arguments
 	args = GetArgs(_args)
 	googlePath = args["path"] #Get path of google fs
+	googleIdentifier = googlePath.split('\\')
+	googleIdentifier = googleIdentifier[len(googleIdentifier) -1]
 	sqlDb = os.path.join(googlePath, "metadata_sqlite_db")
 	cacheFiles = os.path.join(googlePath, "content_cache")
 	csvDest = args["csv"]
@@ -156,7 +169,7 @@ def main(_args):
 	
 	#Write Log file with cachefile names and original file names.
 	if (csvDest != None):
-		WriteCSV(csvDest,cacheFileData)
+		WriteCSV(csvDest,cacheFileData, googleIdentifier)
 	
 	#Copy Data with Original File Names
 	if (backupPath != None):
