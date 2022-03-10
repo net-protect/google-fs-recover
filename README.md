@@ -9,4 +9,4 @@ Example Usage:
 python .\google-fs-recover.py -p <googlefs_path> -csv <csv_output_path> -b <backup_folder_path>
 
 Contributors:
-Chad Tilbury (@chadtilbury) - For providing the research to make this tool possible
+Chad Tilbury (@chadtilbury) - For providing the research and ideas to make this tool possible
